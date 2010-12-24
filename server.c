@@ -48,8 +48,8 @@ void server(int port)
           parse_command(buffer,cmd);
           state->connection = connection;
           
-          /* Command length must be at least 3 */
-          if(strlen(buffer)>=3){
+          /* Ignore non-ascii char. Ignores telnet command */
+          if(buffer[0]<=127 || buffer[0]>=0){
             response(cmd,state);
           }
           memset(buffer,0,BSIZE);
