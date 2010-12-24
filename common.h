@@ -104,6 +104,7 @@ void ftp_pass(Command *, State *);
 void ftp_pwd(Command *, State *);
 void ftp_cwd(Command *, State *);
 void ftp_mkd(Command *, State *);
+void ftp_rmd(Command *, State *);
 void ftp_pasv(Command *, State *);
 void ftp_list(Command *, State *);
 void ftp_retr(Command *, State *);

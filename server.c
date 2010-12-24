@@ -47,7 +47,11 @@ void server(int port)
           printf("User %s sent command: %s\n",(state->username==0)?"unknown":state->username,buffer);
           parse_command(buffer,cmd);
           state->connection = connection;
-          response(cmd,state);
+          
+          /* Command length must be at least 4 */
+          if(strlen(buffer)>3){
+            response(cmd,state);
+          }
           memset(buffer,0,BSIZE);
           memset(cmd,0,sizeof(cmd));
         }else{

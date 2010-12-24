@@ -14,6 +14,7 @@ void response(Command *cmd, State *state)
     case CWD:  ftp_cwd(cmd,state); break;
     case PWD:  ftp_pwd(cmd,state); break;
     case MKD:  ftp_mkd(cmd,state); break;
+    case RMD:  ftp_rmd(cmd,state); break;
     case RETR: ftp_retr(cmd,state); break;
     case STOR: ftp_stor(cmd,state); break;
     case DELE: ftp_dele(cmd,state); break;
@@ -88,6 +89,7 @@ void ftp_pasv(Command *cmd, State *state)
     sprintf(buff,response,ip[0],ip[1],ip[2],ip[3],port->p1,port->p2);
     state->message = buff;
     state->mode = SERVER;
+    puts(state->message);
 
   }else{
     state->message = "530 Please login with USER and PASS.\n";
@@ -172,6 +174,7 @@ void ftp_list(Command *cmd, State *state)
   }else{
     state->message = "530 Please login with USER and PASS.\n";
   }
+  state->mode = NORMAL;
   write_state(state);
 }
 
@@ -261,25 +264,16 @@ void ftp_mkd(Command *cmd, State *state)
   write_state(state);
 }
 
-/** 
- * RETR command 
- * @TODO: Get it work with ftp_abor
- * fork->signal->handle
- * Possible fix: use dup2 to create new file descriptors
- * after killing/exiting child process, it will not close the old descriptors hopefully...
- */
+/** RETR command */
 void ftp_retr(Command *cmd, State *state)
 {
 
-  int pid = fork();
-  
-  state->tr_pid = pid;
-  if(pid==0){
+  if(fork()==0){
     int connection;
     int fd;
     struct stat stat_buf;
     off_t offset = 0;
-
+    int sent_total = 0;
     if(state->logged_in){
 
       /* Passive mode */
@@ -292,8 +286,14 @@ void ftp_retr(Command *cmd, State *state)
           write_state(state);
           
           connection = accept_connection(state->sock_pasv);
+          close(state->sock_pasv);
+          if(sent_total = sendfile(connection, fd, &offset, stat_buf.st_size)){
+            
+            if(sent_total != stat_buf.st_size){
+              perror("ftp_retr:sendfile");
+              exit(EXIT_SUCCESS);
+            }
 
-          if(sendfile(connection, fd, &offset, stat_buf.st_size)){
             state->message = "226 File send OK.\n";
           }else{
             state->message = "550 Failed to read file.\n";
@@ -310,62 +310,71 @@ void ftp_retr(Command *cmd, State *state)
 
     close(fd);
     close(connection);
-    //close(state->connection);
-    //close(state->sock_pasv);
     write_state(state);
-    _exit(EXIT_SUCCESS);
+    exit(EXIT_SUCCESS);
   }
+  state->mode = NORMAL;
   close(state->sock_pasv);
 }
 
 /** Handle STOR command. TODO: check permissions. */
 void ftp_stor(Command *cmd, State *state)
 {
-  int connection, fd;
-  off_t offset = 0;
-  int pipefd[2];
-  int res = 1;
-  const int buff_size = 8192;
+  if(fork()==0){
+    int connection, fd;
+    off_t offset = 0;
+    int pipefd[2];
+    int res = 1;
+    const int buff_size = 8192;
 
-  FILE *fp = fopen(cmd->arg,"w");
+    FILE *fp = fopen(cmd->arg,"w");
 
-  if(fp==NULL){
-    /* TODO: write status message here! */
-    perror("ftp_stor:fopen");
-  }else if(state->logged_in){
-    if(!(state->mode==SERVER)){
-      state->message = "550 Please use PASV instead of PORT.\n";
-    }
-    /* Passive mode */
-    else{
-      fd = fileno(fp);
-      connection = accept_connection(state->sock_pasv);
-      if(pipe(pipefd)==-1)perror("ftp_stor: pipe");
-
-      state->message = "125 Data connection already open; transfer starting.\n";
-      write_state(state);
-
-      /* Using splice function for file receiving.
-       * The splice() system call first appeared in Linux 2.6.17.
-       */
-      while ((res = splice(connection, 0, pipefd[1], NULL, buff_size, SPLICE_F_MORE | SPLICE_F_MOVE))>0){
-        splice(pipefd[0], NULL, fd, 0, buff_size, SPLICE_F_MORE | SPLICE_F_MOVE);
+    if(fp==NULL){
+      /* TODO: write status message here! */
+      perror("ftp_stor:fopen");
+    }else if(state->logged_in){
+      if(!(state->mode==SERVER)){
+        state->message = "550 Please use PASV instead of PORT.\n";
       }
+      /* Passive mode */
+      else{
+        fd = fileno(fp);
+        connection = accept_connection(state->sock_pasv);
+        close(state->sock_pasv);
+        if(pipe(pipefd)==-1)perror("ftp_stor: pipe");
 
-      if(res==-1){
-        perror("ftp_stor: splice");
+        state->message = "125 Data connection already open; transfer starting.\n";
+        write_state(state);
+
+        /* Using splice function for file receiving.
+         * The splice() system call first appeared in Linux 2.6.17.
+         */
+
+        while ((res = splice(connection, 0, pipefd[1], NULL, buff_size, SPLICE_F_MORE | SPLICE_F_MOVE))>0){
+          splice(pipefd[0], NULL, fd, 0, buff_size, SPLICE_F_MORE | SPLICE_F_MOVE);
+        }
+
+        /* TODO: signal with ABOR command to exit */
+
         /* Internal error */
-        state->message = "450 Requested file action not taken.\n";
-      }else{
-        state->message = "226 File send OK.\n";
+        if(res==-1){
+          perror("ftp_stor: splice");
+          exit(EXIT_SUCCESS);
+        }else{
+          state->message = "226 File send OK.\n";
+        }
+        close(connection);
+        close(fd);
       }
-      close(connection);
-      close(fd);
+    }else{
+      state->message = "530 Please login with USER and PASS.\n";
     }
-  }else{
-    state->message = "530 Please login with USER and PASS.\n";
+    close(connection);
+    write_state(state);
+    exit(EXIT_SUCCESS);
   }
-  write_state(state);
+  state->mode = NORMAL;
+  close(state->sock_pasv);
 
 }
 
@@ -373,12 +382,8 @@ void ftp_stor(Command *cmd, State *state)
 void ftp_abor(State *state)
 {
   if(state->logged_in){
-    printf("aborting transfer...");
-    close(state->sock_pasv);
-    state->message = "426 Transfer aborted. Data connection closed.\n";
-    write_state(state);
-    //kill(state->tr_pid,9);
     state->message = "226 Closing data connection.\n";
+    state->message = "225 Data connection open; no transfer in progress.\n";
   }else{
     state->message = "530 Please login with USER and PASS.\n";
   }
@@ -396,8 +401,9 @@ void ftp_type(Command *cmd,State *state)
     if(cmd->arg[0]=='I'){
       state->message = "200 Switching to Binary mode.\n";
     }else if(cmd->arg[0]=='A'){
-      //state->message = "200 Switching to ASCII mode.\n";
-      state->message = "504 Command not implemented for that parameter.\n";
+
+      /* Type A must be always accepted according to RFC */
+      state->message = "200 Switching to ASCII mode.\n";
     }else{
       state->message = "504 Command not implemented for that parameter.\n";
     }
@@ -420,6 +426,22 @@ void ftp_dele(Command *cmd,State *state)
     state->message = "530 Please login with USER and PASS.\n";
   }
   write_state(state);
+}
+
+/** Handle RMD */
+void ftp_rmd(Command *cmd, State *state)
+{
+  if(!state->logged_in){
+    state->message = "530 Please login first.\n";
+  }else{
+    if(rmdir(cmd->arg)==0){
+      state->message = "250 Requested file action okay, completed.\n";
+    }else{
+      state->message = "550 Cannot delete directory.\n";
+    }
+  }
+  write_state(state);
+
 }
 
 /** Handle SIZE (RFC 3659) */
@@ -475,5 +497,4 @@ void str_perm(int perm, char *str_perm)
     strcat(str_perm,fbuff);
 
   }
-
 }
