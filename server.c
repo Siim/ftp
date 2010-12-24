@@ -48,8 +48,8 @@ void server(int port)
           parse_command(buffer,cmd);
           state->connection = connection;
           
-          /* Command length must be at least 4 */
-          if(strlen(buffer)>3){
+          /* Command length must be at least 3 */
+          if(strlen(buffer)>=3){
             response(cmd,state);
           }
           memset(buffer,0,BSIZE);
