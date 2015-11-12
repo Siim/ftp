@@ -129,12 +129,9 @@ void getip(int sock, int *ip)
   socklen_t addr_size = sizeof(struct sockaddr_in);
   struct sockaddr_in addr;
   getsockname(sock, (struct sockaddr *)&addr, &addr_size);
-  int host,i;
-
-  host = (addr.sin_addr.s_addr);
-  for(i=0; i<4; i++){
-    ip[i] = (host>>i*8)&0xff;
-  }
+ 
+  char* host = inet_ntoa(addr.sin_addr);
+  sscanf(host,"%d.%d.%d.%d",&ip[0],&ip[1],&ip[2],&ip[3]);
 }
 
 /**

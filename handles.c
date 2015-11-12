@@ -1,4 +1,56 @@
 #include "common.h"
+#ifndef sendfile
+#define BUF_SIZE 8192
+ssize_t sendfile(int out_fd, int in_fd, off_t * offset, size_t count )
+{
+    off_t orig;
+    char buf[BUF_SIZE];
+    size_t toRead, numRead, numSent, totSent;
+
+    if (offset != NULL) {
+        /* Save current file offset and set offset to value in '*offset' */
+        orig = lseek(in_fd, 0, SEEK_CUR);
+        if (orig == -1)
+            return -1;
+        if (lseek(in_fd, *offset, SEEK_SET) == -1)
+            return -1;
+    }
+
+    totSent = 0;
+    while (count > 0) {
+        toRead = count<BUF_SIZE ? count : BUF_SIZE;
+
+        numRead = read(in_fd, buf, toRead);
+        if (numRead == -1)
+            return -1;
+        if (numRead == 0)
+            break;                      /* EOF */
+
+        numSent = write(out_fd, buf, numRead);
+        if (numSent == -1)
+            return -1;
+        if (numSent == 0) {               /* Should never happen */
+            perror("sendfile: write() transferred 0 bytes");
+            exit(-1);
+        }
+
+        count -= numSent;
+        totSent += numSent;
+    }
+
+    if (offset != NULL) {
+        /* Return updated file offset in '*offset', and reset the file offset
+           to the value it had when we were called. */
+        *offset = lseek(in_fd, 0, SEEK_CUR);
+        if (*offset == -1)
+            return -1;
+        if (lseek(in_fd, orig, SEEK_SET) == -1)
+            return -1;
+    }
+    return totSent;
+}
+#endif
+
 /**
  * Generates response message for client
  * @param cmd Current command
