@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-c
+CFLAGS=-c -Wall
 LDFLAGS=-lm
 SOURCES=server.c handles.c
 OBJECTS=$(SOURCES:.cpp=.o)
