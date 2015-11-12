@@ -44,6 +44,7 @@ void server(int port)
 
         if(!(bytes_read>BSIZE)){
           /* TODO: output this to log */
+          buffer[BSIZE-1] = '\0';
           printf("User %s sent command: %s\n",(state->username==0)?"unknown":state->username,buffer);
           parse_command(buffer,cmd);
           state->connection = connection;
