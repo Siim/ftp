@@ -1,26 +1,24 @@
-SIMPLE FTP server
+# SIMPLE FTP server
 
 
-How to install:
----------------
+## How to install:
 
-  1) cd to the ftp dir
-  2) make
-  3) execute with ./ftp
+```
+cd to the ftp dir
+make
+execute with ./ftp
+```
 
+## Commands that are currently implemented:
 
-Commands that are currently implemented:
-----------------------------------------  
+* USER PASS - anonymous ftp only at the moment
+* PASV LIST CWD PWD MKD RMD RETR STOR DELE SIZE ABOR QUIT TYPE NOOP
 
-USER PASS - anonymous ftp only at the moment
-
-  PASV LIST CWD PWD MKD RMD RETR STOR DELE SIZE ABOR QUIT TYPE NOOP
-
-TODO list is long however the basic functionality is there:
-  - user log in
-  - get file
-  - put file
-  - mkdir, rm, rmdir
+### TODO
+* user log in
+* get file
+* put file
+* mkdir, rm, rmdir
 
 Server currently works with linux only because of splice() and sendfile() functions.
 It should be easy enough to implement RETR and STOR for other systems too, so it is 
