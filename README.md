@@ -1,4 +1,4 @@
-# SIMPLE FTP server
+# Simple ftp server
 
 
 ## How to install:
