@@ -247,10 +247,10 @@ void ftp_pwd(Command *cmd, State *state)
     char cwd[BSIZE];
     char result[BSIZE];
     memset(result, 0, BSIZE);
-    if(getcwd(cwd,BSIZE)!=NULL){
-      strcat(result,"257 \"");
-      strcat(result,cwd);
-      strcat(result,"\"\n");
+    if(getcwd(cwd,BSIZE - 8)!=NULL){	//Making sure the length of cwd and additional text don't exceed BSIZE
+      strcat(result,"257 \"");		//5 characters
+      strcat(result,cwd);		//strlen(cwd)
+      strcat(result,"\"\n");		//2 characters + 0 byte
       state->message = result;
     }else{
       state->message = "550 Failed to get pwd.\n";
@@ -283,7 +283,7 @@ void ftp_mkd(Command *cmd, State *state)
 {
   if(state->logged_in){
     char cwd[BSIZE];
-    char res[BSIZE];
+    char res[2*BSIZE]; //Increasing buffer size to accomodate all usecases, doubling and adding 32 extra characters for the sprintf
     memset(cwd,0,BSIZE);
     memset(res,0,BSIZE);
     getcwd(cwd,BSIZE);
@@ -304,7 +304,7 @@ void ftp_mkd(Command *cmd, State *state)
     /* Relative path */
     else{
       if(mkdir(cmd->arg,S_IRWXU)==0){
-        sprintf(res,"257 \"%s/%s\" new directory created.\n",cwd,cmd->arg);
+        sprintf(res,"257 \"%s/%s\" new directory created.\n",cwd,cmd->arg); //32 additional characters
         state->message = res;
       }else{
         state->message = "550 Failed to create directory.\n";
@@ -384,6 +384,7 @@ void ftp_stor(Command *cmd, State *state)
     if(fp==NULL){
       /* TODO: write status message here! */
       perror("ftp_stor:fopen");
+      state->message = "550 No such file or directory.\n";
     }else if(state->logged_in){
       if(!(state->mode==SERVER)){
         state->message = "550 Please use PASV instead of PORT.\n";
