@@ -283,9 +283,9 @@ void ftp_mkd(Command *cmd, State *state)
 {
   if(state->logged_in){
     char cwd[BSIZE];
-    char res[2*BSIZE]; //Increasing buffer size to accomodate all usecases, doubling and adding 32 extra characters for the sprintf
+    char res[2*BSIZE+32]; //Increasing buffer size to accomodate all usecases, doubling and adding 32 extra characters for the sprintf
     memset(cwd,0,BSIZE);
-    memset(res,0,BSIZE);
+    memset(res,0,2*BSIZE+32);
     getcwd(cwd,BSIZE);
 
     /* TODO: check if directory already exists with chdir? */
