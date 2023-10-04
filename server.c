@@ -1,4 +1,7 @@
-#include "common.h"
+#include "server.h"
+
+#include <arpa/inet.h>
+#include <sys/wait.h>
 /** 
  * Sets up server and handles incoming connections
  * @param port Server port
@@ -52,6 +55,10 @@ void server(int port)
           /* Ignore non-ascii char. Ignores telnet command */
           if(buffer[0]<=127 || buffer[0]>=0){
             response(cmd,state);
+          }
+          else
+          {
+            printf("Ignoring command %s\n", cmd->command);
           }
           memset(buffer,0,BSIZE);
           memset(cmd,0,sizeof(cmd));
@@ -203,7 +210,7 @@ void my_wait(int signum)
   wait(&status);
 }
 
-main()
+int main()
 {
   server(8021);
   return 0;
