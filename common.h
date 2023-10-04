@@ -1,7 +1,6 @@
 #ifndef COMMON_INCLUDE_
 #define COMMON_INCLUDE_
 
-#define _GNU_SOURCE
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -10,6 +9,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#define __USE_GNU
 #include <fcntl.h>
 #include <pwd.h>
 #include <netinet/in.h>
@@ -36,7 +36,7 @@ typedef struct State
 
   /* Is this username allowed? */
   int username_ok;
-  char *username;
+  char username[32];
   
   /* Response message to client e.g. 220 Welcome */
   char *message;

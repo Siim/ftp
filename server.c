@@ -16,8 +16,8 @@ void server(int port)
   while(1){
     connection = accept(sock, (struct sockaddr*) &client_address,&len);
     char buffer[BSIZE];
-    Command *cmd = malloc(sizeof(Command));
-    State *state = malloc(sizeof(State));
+    Command cmd;
+    State state;
     pid = fork();
     
     memset(buffer,0,BSIZE);
@@ -48,20 +48,20 @@ void server(int port)
         if(!(bytes_read>BSIZE)){
           /* TODO: output this to log */
           buffer[BSIZE-1] = '\0';
-          printf("User %s sent command: %s\n",(state->username==0)?"unknown":state->username,buffer);
-          parse_command(buffer,cmd);
-          state->connection = connection;
+          printf("User %s sent command: %s\n",(state.username==0)?"unknown":state.username,buffer);
+          parse_command(buffer,&cmd);
+          state.connection = connection;
           
           /* Ignore non-ascii char. Ignores telnet command */
           if(buffer[0]<=127 || buffer[0]>=0){
-            response(cmd,state);
+            response(&cmd,&state);
           }
           else
           {
-            printf("Ignoring command %s\n", cmd->command);
+            printf("Ignoring command %s\n", cmd.command);
           }
           memset(buffer,0,BSIZE);
-          memset(cmd,0,sizeof(cmd));
+          memset(&cmd,0,sizeof(cmd));
         }else{
           /* Read error */
           perror("server:read");

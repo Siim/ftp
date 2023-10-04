@@ -1,6 +1,6 @@
-#include <arpa/inet.h>
 #include "common.h"
 #include "server.h"
+#include <arpa/inet.h>
 #ifndef sendfile
 #define BUF_SIZE 8192
 ssize_t sendfile(int out_fd, int in_fd, off_t * offset, size_t count )
@@ -100,7 +100,6 @@ void ftp_user(Command *cmd, State *state)
 {
   const int total_usernames = sizeof(usernames)/sizeof(char *);
   if(lookup(cmd->arg,usernames,total_usernames)>=0){
-    state->username = malloc(32);
     memset(state->username,0,32);
     strcpy(state->username,cmd->arg);
     state->username_ok = 1;
@@ -192,14 +191,22 @@ void ftp_list(Command *cmd, State *state)
           if(stat(entry->d_name,&statbuf)==-1){
             fprintf(stderr, "FTP: Error reading file stats...\n");
           }else{
-            char *perms = malloc(9);
-            memset(perms,0,9);
+            char perms[10];
+            memset(perms,0,10);
 
             /* Convert time_t to tm struct */
             rawtime = statbuf.st_mtime;
             time = localtime(&rawtime);
             strftime(timebuff,80,"%b %d %H:%M",time);
             str_perm((statbuf.st_mode & ALLPERMS), perms);
+            printf("%c%s %5ld %4d %4d %8ld %s %s\r\n",
+              (entry->d_type==DT_DIR)?'d':'-',
+                perms,statbuf.st_nlink,
+                statbuf.st_uid, 
+                statbuf.st_gid,
+                statbuf.st_size,
+                timebuff,
+                entry->d_name);
             dprintf(connection,
                 "%c%s %5ld %4d %4d %8ld %s %s\r\n", 
                 (entry->d_type==DT_DIR)?'d':'-',
