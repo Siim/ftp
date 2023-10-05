@@ -1,3 +1,5 @@
+#ifndef COMMON_INCLUDE_
+#define COMMON_INCLUDE_
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <string.h>
@@ -33,7 +35,7 @@ typedef struct State
 
   /* Is this username allowed? */
   int username_ok;
-  char *username;
+  char username[32];
   
   /* Response message to client e.g. 220 Welcome */
   char *message;
@@ -117,3 +119,5 @@ void ftp_abor(State *);
 
 void str_perm(int, char *);
 void my_wait(int);
+
+#endif

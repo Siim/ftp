@@ -1,4 +1,6 @@
 #include "common.h"
+#include "server.h"
+#include <arpa/inet.h>
 #ifndef sendfile
 #define BUF_SIZE 8192
 ssize_t sendfile(int out_fd, int in_fd, off_t * offset, size_t count )
@@ -98,7 +100,6 @@ void ftp_user(Command *cmd, State *state)
 {
   const int total_usernames = sizeof(usernames)/sizeof(char *);
   if(lookup(cmd->arg,usernames,total_usernames)>=0){
-    state->username = malloc(32);
     memset(state->username,0,32);
     strcpy(state->username,cmd->arg);
     state->username_ok = 1;
@@ -128,17 +129,17 @@ void ftp_pasv(Command *cmd, State *state)
     int ip[4];
     char buff[255];
     char *response = "227 Entering Passive Mode (%d,%d,%d,%d,%d,%d)\n";
-    Port *port = malloc(sizeof(Port));
-    gen_port(port);
+    Port port;
+    gen_port(&port);
     getip(state->connection,ip);
 
     /* Close previous passive socket? */
     close(state->sock_pasv);
 
     /* Start listening here, but don't accept the connection */
-    state->sock_pasv = create_socket((256*port->p1)+port->p2);
-    printf("port: %d\n",256*port->p1+port->p2);
-    sprintf(buff,response,ip[0],ip[1],ip[2],ip[3],port->p1,port->p2);
+    state->sock_pasv = create_socket((256*port.p1)+port.p2);
+    printf("port: %d\n",256*port.p1+port.p2);
+    sprintf(buff,response,ip[0],ip[1],ip[2],ip[3],port.p1,port.p2);
     state->message = buff;
     state->mode = SERVER;
     puts(state->message);
@@ -190,16 +191,24 @@ void ftp_list(Command *cmd, State *state)
           if(stat(entry->d_name,&statbuf)==-1){
             fprintf(stderr, "FTP: Error reading file stats...\n");
           }else{
-            char *perms = malloc(9);
-            memset(perms,0,9);
+            char perms[10];
+            memset(perms,0,10);
 
             /* Convert time_t to tm struct */
             rawtime = statbuf.st_mtime;
             time = localtime(&rawtime);
             strftime(timebuff,80,"%b %d %H:%M",time);
             str_perm((statbuf.st_mode & ALLPERMS), perms);
+            printf("%c%s %5ld %4d %4d %8ld %s %s\r\n",
+              (entry->d_type==DT_DIR)?'d':'-',
+                perms,statbuf.st_nlink,
+                statbuf.st_uid, 
+                statbuf.st_gid,
+                statbuf.st_size,
+                timebuff,
+                entry->d_name);
             dprintf(connection,
-                "%c%s %5d %4d %4d %8d %s %s\r\n", 
+                "%c%s %5ld %4d %4d %8ld %s %s\r\n", 
                 (entry->d_type==DT_DIR)?'d':'-',
                 perms,statbuf.st_nlink,
                 statbuf.st_uid, 
@@ -506,7 +515,7 @@ void ftp_size(Command *cmd, State *state)
     memset(filesize,0,128);
     /* Success */
     if(stat(cmd->arg,&statbuf)==0){
-      sprintf(filesize, "213 %d\n", statbuf.st_size);
+      sprintf(filesize, "213 %ld\n", statbuf.st_size);
       state->message = filesize;
     }else{
       state->message = "550 Could not get file size.\n";
@@ -531,7 +540,7 @@ void str_perm(int perm, char *str_perm)
   int read, write, exec;
   
   /* Flags buffer */
-  char fbuff[3];
+  char fbuff[4];
 
   read = write = exec = 0;
   
@@ -540,7 +549,7 @@ void str_perm(int perm, char *str_perm)
     /* Explode permissions of user, group, others; starting with users */
     curperm = ((perm & ALLPERMS) >> i ) & 0x7;
     
-    memset(fbuff,0,3);
+    memset(fbuff,0,4);
     /* Check rwx flags for each*/
     read = (curperm >> 2) & 0x1;
     write = (curperm >> 1) & 0x1;
